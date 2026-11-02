@@ -89,7 +89,7 @@ export const ProjectDetailPage: React.FC = () => {
   }
 
   return (
-    <div className="relative min-h-screen bg-[#0a0a0a] text-[#f5f5f5] light:bg-[#EAE0D0] light:text-[#1a1a1a] transition-colors">
+    <div className="relative min-h-screen bg-[#0a0a0a] text-[#f5f5f5] light:bg-[#EAE0D0] light:text-[#1a1a1a]">
       <ScrollProgress />
       <CustomCursor />
       <Navbar settings={portfolioData?.settings} />

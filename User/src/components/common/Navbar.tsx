@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../../context/ThemeContext.js';
 import { SiteSettings } from '../../types/index.js';
-import { Sun, Moon, Menu, X, FileDown } from 'lucide-react';
+import { Menu, X, FileDown } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import { ThemeSelector } from './ThemeSelector.js';
 
 interface NavbarProps {
   settings?: SiteSettings;
@@ -123,26 +124,13 @@ export const Navbar: React.FC<NavbarProps> = ({ settings }) => {
             </a>
           )}
 
-          {/* Theme Switcher */}
-          <button
-            onClick={toggleTheme}
-            aria-label={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
-            title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
-            className="p-2 rounded-full border border-[#262626] light:border-[#C6B7A0] hover:border-[#e91010] text-neutral-300 light:text-neutral-800 hover:text-[#e91010] transition-colors bg-[#141414] light:bg-[#DFD4C2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e91010]"
-          >
-            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-          </button>
+          {/* Animated Theme Selector (System / Light / Dark) */}
+          <ThemeSelector size="sm" />
         </div>
 
-        {/* Mobile Hamburger Button */}
+        {/* Mobile Header Controls */}
         <div className="flex md:hidden items-center gap-2">
-          <button
-            onClick={toggleTheme}
-            aria-label={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
-            className="p-2 rounded-lg border border-[#262626] light:border-[#C6B7A0] text-neutral-300 light:text-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e91010]"
-          >
-            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-          </button>
+          <ThemeSelector size="sm" />
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             aria-label={isMobileMenuOpen ? 'Close Navigation Menu' : 'Open Navigation Menu'}

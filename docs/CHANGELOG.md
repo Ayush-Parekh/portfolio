@@ -5,6 +5,131 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ---
 
+## [Performance Optimization: Theme Switch & Screen Animation Lag Resolution] - 2026-11-02 11:45 IST
+
+### Task Name
+Fix Animation Lag and Screen Choppiness During Theme Switch and General Navigation
+
+### Requirement Description
+Investigate and resolve severe lag, frame drops, and perceived screen choppiness occurring during theme switching and page interaction across Visitor (`User/`) and Admin (`Admin/`) pages.
+
+### Root Cause Analysis
+1. **Wildcard CSS Transitions:** `index.css` contained `body, #root, div, header, nav, footer { transition: background-color 0.25s, color 0.25s, border-color 0.25s; }`. Targeting all `div` elements caused hundreds of layout and style recalculations on every interaction, hover, scroll, and theme change. During `startViewTransition()`, this caused 500+ elements to run 250ms CSS transitions concurrently with the 500ms radial clip-path animation, overwhelming the compositor and dropping frames.
+2. **GPU Compositing Bottlenecks in Custom Cursor:** `CustomCursor.tsx` used `mix-blend-difference` on a fixed, mouse-following overlay. On Chromium, continuous blending across blurred navigation backdrops and gradients forced expensive full-frame GPU readbacks. Additionally, low spring stiffness (`stiffness: 250, damping: 25`) created intentional drag, making the pointer and screen appear laggy. During View Transitions, the custom cursor was also captured into the transition screenshot, leaving a frozen ghost cursor on screen.
+3. **Lenis RAF Loop Leak:** In `HomePage.tsx`, the `requestAnimationFrame` handle was not canceled when unmounting, leaving orphaned RAF loops running across route navigations.
+4. **Body Color Transition Conflicts:** `transition-colors duration-300` on `<body>` in `index.html` conflicted with the native circular reveal.
+
+### Files Created
+- None
+
+### Files Modified
+- `User/src/components/common/CustomCursor.tsx`: Removed `mix-blend-difference`, promoted cursor to hardware-accelerated layer (`will-change-transform`), increased spring responsiveness (`stiffness: 600, damping: 35`), debounced hover listener checks, and added `.custom-cursor` class identifier.
+- `User/src/pages/HomePage.tsx`: Added `cancelAnimationFrame(rafId)` to cleanup of `Lenis` smooth scroll loop.
+- `User/src/index.css`: Removed wildcard `div` transitions; added `.theme-transitioning` suppression to disable conflicting transitions during View Transitions, and hid `.custom-cursor` during transitions to prevent ghost cursor snapshots.
+- `Admin/src/index.css`: Removed wildcard `div` transitions and added `.theme-transitioning` suppression.
+- `User/src/context/ThemeContext.tsx`: Added `.theme-transitioning` toggle during `startViewTransition`, optimized circular clip-path duration to 400ms with `cubic-bezier(0.4, 0, 0.2, 1)`, and added clean cleanup in `transition.finished.finally()`.
+- `Admin/src/context/ThemeContext.tsx`: Applied the same `.theme-transitioning` and 400ms duration optimizations.
+- `User/index.html` & `Admin/index.html`: Removed `transition-colors duration-300` from `<body>`.
+- `User/src/pages/ProjectDetailPage.tsx` & `User/src/pages/BlogDetailPage.tsx`: Removed redundant `transition-colors` from root container.
+
+### Files Deleted
+- None
+
+### Tests Performed & Results
+- Production Build `User/`: `npm --prefix User run build` succeeded cleanly with exit code 0.
+- Production Build `Admin/`: `npm --prefix Admin run build` succeeded cleanly with exit code 0.
+- Backend Test Suite: `npm --prefix Backend run test` passed 16/16 tests.
+
+### Known Issues
+- None.
+
+---
+
+## [UI/UX Enhancement: WealthRush Animated Theme Switcher & Circular View Transition] - 2026-11-02 11:20 IST
+
+### Task Name
+Implement WealthRush-Style Theme Selector with Spring Pill and Circular Ripple View Transition Animation
+
+### Requirement Description
+Replicate the theme switch experience from the WealthRush reference application (`D:\AYUSH\wealth-rush-capital\wealthrushcapital-user-web`) into both the Visitor (`User/`) and Admin Console (`Admin/`) applications:
+1. Segmented radio switcher with active pill spring animation using Framer Motion (`layoutId` + spring damping/stiffness).
+2. Smooth radial ripple / circular clip-path reveal originating from cursor click coordinates across the viewport via the native View Transition API (`document.startViewTransition` + `clipPath: circle(...)`).
+
+### Files Created
+- `User/src/utils/cn.ts`: Reusable Tailwind class merger (`clsx` + `tailwind-merge`).
+- `User/src/components/common/ThemeSelector.tsx`: WealthRush segmented theme selector component (System / Light / Dark) with Framer Motion animated active background pill.
+- `Admin/src/utils/cn.ts`: Reusable Tailwind class merger.
+- `Admin/src/components/common/ThemeSelector.tsx`: WealthRush segmented theme selector component for the Admin Console.
+
+### Files Modified
+- `User/src/context/ThemeContext.tsx`: Upgraded `ThemeContext` to accept click mouse/pointer events (`ThemeChangeEvent`), calculate dynamic screen-diagonal radius from click origin, and drive circular `document.startViewTransition` clip-path keyframe animations with graceful fallback.
+- `User/src/components/common/Navbar.tsx`: Integrated `<ThemeSelector size="sm" />` for both desktop header and mobile responsive drawer.
+- `User/src/index.css`: Added View Transition pseudo-element resets (`::view-transition-old(root)`, `::view-transition-new(root)`) with stacking order (`z-index: 9999` on new view) to enable seamless radial expansion.
+- `Admin/package.json` & `Admin/package-lock.json`: Added `framer-motion` dependency for spring layout transitions.
+- `Admin/src/context/ThemeContext.tsx`: Upgraded `ThemeContext` with pointer coordinate capture and radial View Transition animation support.
+- `Admin/src/components/layout/AdminLayout.tsx`: Embedded `<ThemeSelector size="sm" />` in admin header bar.
+- `Admin/src/index.css`: Added View Transition pseudo-element resets and circular reveal styling.
+
+### Files Deleted
+- None
+
+### Changes Implemented
+1. **Framer Motion Segmented Pill Selector:** Built `ThemeSelector` using radio buttons (`role="radiogroup"`) featuring system auto (`Monitor`), light (`Sun`), and dark (`Moon`) icons. The highlighted pill smoothly glides between options via `motion.div` with physics parameters `type: 'spring', stiffness: 480, damping: 34`.
+2. **Radial Ripple View Transition API:** In `ThemeContext.tsx`, `setTheme` captures `(event.clientX, event.clientY)` coordinates. When `document.startViewTransition` is supported (and motion is not reduced), it computes `hypot(max(x, w-x), max(y, h-y))` and animates `clipPath: [circle(0px at x y), circle(endRadius at x y)]` over 450ms (`cubic-bezier(0.4, 0, 0.2, 1)`), cleanly sweeping the new theme across the viewport.
+3. **Graceful Fallbacks:** Guaranteed zero breakage on unsupported browsers or user reduced-motion preference (`window.matchMedia('(prefers-reduced-motion: reduce)')`) by immediately flipping state without transition.
+4. **Universal Integration:** Applied consistently to both the public portfolio visitor site (`User/`) and the administrative portal (`Admin/`).
+
+### Reason
+Fulfill user's UI/UX specification to match the interactive micro-interactions and smooth visual transition patterns established in the WealthRush project.
+
+### Tests Performed & Results
+- Production Build `User/`: `npm --prefix User run build` succeeded with exit code 0 (`tsc && vite build`).
+- Production Build `Admin/`: `npm --prefix Admin run build` succeeded with exit code 0 (`tsc && vite build`).
+- Backend Test Suite: `npm --prefix Backend run test` passed 16/16 tests across all 3 suites.
+
+### Known Issues
+- None.
+
+---
+
+## [Bugfix: Light/Dark Theme Switching Resolution] - 2026-11-02 10:35 IST
+
+### Task Name
+Fix Light / Dark Theme Switching Across Visitor & Admin Applications
+
+### Requirement Description
+Investigate and resolve the issue where clicking the light/dark mode toggle button did not change the visual theme on the website.
+
+### Files Created
+- None
+
+### Files Modified
+- `User/tailwind.config.js` (registered `light` variant plugin via `tailwindcss/plugin`)
+- `Admin/tailwind.config.js` (registered `light` variant plugin via `tailwindcss/plugin`)
+- `User/index.html` (added `light:bg-[#EAE0D0] light:text-[#1a1a1a]` to `<body>`)
+- `Admin/index.html` (added `light:bg-[#EAE0D0] light:text-[#1a1a1a]` to `<body>`)
+- `User/src/index.css` (defined explicit `html.light`, `html.light body`, and smooth color transition)
+- `Admin/src/index.css` (defined explicit `html.light`, `html.light body`, and smooth color transition)
+- `Admin/src/pages/LoginPage.tsx` (added light theme styles for login card)
+
+### Files Deleted
+- None
+
+### Root Cause
+Tailwind CSS with `darkMode: 'class'` only provides the `dark:` variant by default. It has no built-in `light:` variant. As a result, all `light:...` utility classes written across the JSX components were ignored by the Tailwind compiler during CSS generation, leaving only the dark default classes active. Additionally, `<body>` in `index.html` had dark classes hardcoded without theme reactivity.
+
+### Changes Implemented
+1. Registered a custom `light` variant plugin in both `User/tailwind.config.js` and `Admin/tailwind.config.js` mapping `:is(.light &)` to enable all `light:*` utility classes.
+2. Updated root `html.light` and `html.light body` in `index.css` to set background `#EAE0D0` (warm ivory) and text `#1a1a1a`.
+3. Updated `<body>` in both `index.html` files with theme classes and smooth 300ms transition.
+
+### Tests Performed & Results
+- Production build `User/`: `npm --prefix User run build` succeeded; verified that light theme selectors (e.g. `:is(.light .light\:bg-\[\#EAE0D0\])`) are generated into the CSS output.
+- Production build `Admin/`: `npm --prefix Admin run build` succeeded; verified light theme styles in generated bundle.
+- Backend tests: `npm --prefix Backend run test` passed 16/16 tests.
+
+---
+
 ## [Phase 6: Deployment Configuration & Production Readiness] - 2026-10-31 16:50 IST
 
 ### Task Name

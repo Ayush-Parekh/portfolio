@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext.js';
 import { useTheme } from '../../context/ThemeContext.js';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../services/api.js';
+import { ThemeSelector } from '../common/ThemeSelector.js';
 import {
   LayoutDashboard,
   FolderGit2,
@@ -150,15 +151,8 @@ export const AdminLayout: React.FC = () => {
               <ExternalLink className="w-3.5 h-3.5" />
             </a>
 
-            {/* Dark / Light Toggle */}
-            <button
-              onClick={toggleTheme}
-              aria-label={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
-              title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
-              className="p-2 rounded-lg border border-[#262626] light:border-[#C6B7A0] hover:border-[#e91010] text-neutral-300 light:text-neutral-700 hover:text-[#e91010] transition-colors bg-[#181818] light:bg-[#D5C8B4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e91010]"
-            >
-              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </button>
+            {/* Animated Theme Selector */}
+            <ThemeSelector size="sm" />
           </div>
         </header>
 
